@@ -5,7 +5,7 @@ import sys
 porta_serial = 'COM3'  
 baudrate = 115200      # ESP32 agora roda estável em 115200
 
-referencia = 5.0  # °C desejada
+referencia = 5.0  # °C desejada(trocar para o valor ser fornecido pelo usuário)
 Kp = 40           # ganho proporcional
 
 try:
@@ -19,28 +19,11 @@ try:
     while True:
         if ser.in_waiting > 0:
             try:
-                linha = ser.readline().decode('utf-8', errors='ignore').strip()
-            except UnicodeDecodeError:
-                linha = ""  # ignora se der erro
-
-            # 🔹 Filtra: só mostra TEMP e PWM
-            if linha.startswith("TEMP:"):
-                print(f"ESP32: {linha}")
-
-                try:
-                    temp_atual = float(linha.split(":")[1])
-                    erro = referencia - temp_atual
-                    pwm = int(max(0, min(1023, Kp * erro)))
-
-                    comando = f"SET_PWM:{pwm}\n"
-                    ser.write(comando.encode('utf-8'))
-                    print(f"Python: Temp={temp_atual:.2f} | Erro={erro:.2f} | PWM={pwm}")
-                except (IndexError, ValueError):
-                    print("⚠ Erro ao interpretar leitura do ESP32.")
-
-            elif linha.startswith("PWM"):
-                print(f"ESP32: {linha}")
-
+                porta_serial.write(referencia.encode())
+                print(f'Referência enviada: {referencia}°C')
+            except KeyboardInterrupt:
+                print("Comunicação encerrada.")
+                porta_serial.close() # Fecha a conexão serial
         time.sleep(0.5)
 
 except serial.SerialException as e:

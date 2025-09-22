@@ -18,7 +18,7 @@ float P3=0;
 float P4=rho;
 float a=0;
 float b=0;
-float r=15;
+float r;;
 float k=1;
 float eant=r;
 float uant=0;
@@ -35,6 +35,7 @@ void setup() {
 void loop() {
   // Simula leitura de temperatura (trocar por sensor real)
   float temp = 25.5 + (random(-50, 50) / 100.0); 
+  r = Serial.parseFloat();
   Serial.print("TEMP:");
   Serial.println(temp, 2);
 
