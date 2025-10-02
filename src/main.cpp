@@ -26,18 +26,20 @@ float r=20;
 float k=1;
 float eant=r;
 float uant=0;
+float tau=5;
 
 long tempo_ant=0;
 long ts=100;
 
 float y_ini=0;
 
+String receivedMessage = "";
+
 OneWire oneWire(dados);  /*Protocolo OneWire*/
-/********************************************************************/
 DallasTemperature sensors(&oneWire); /*encaminha referências OneWire para o sensor*/
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   delay(2000);
 
   // Configura PWM
@@ -45,7 +47,7 @@ void setup() {
   ledcAttachPin(PWM_PIN, PWM_CHANNEL);
   sensors.begin();
   sensors.requestTemperatures();
-  y_ini=float(sensors.getTempCByIndex(0));
+  y_ini=sensors.getTempCByIndex(0);
 }
 
 void loop() {
@@ -53,8 +55,11 @@ void loop() {
     // Simula leitura de temperatura (trocar por sensor real)
     sensors.requestTemperatures();
     float temp = y_ini-sensors.getTempCByIndex(0);
-    Serial.print("TEMP:");
     Serial.println(temp, 2);
+
+    if(Serial.available()){
+      readValues();
+    }
 
     float h1=(u*P1-y*P2)/(1+((u*u)*P1-u*y*P3-u*y*P2+(y*y)*P4));
     float h2=(u*P3-y*P4)/(1+((u*u)*P1-u*y*P3-u*y*P2+(y*y)*P4));
@@ -72,7 +77,6 @@ void loop() {
     float e=r-temp;
 
     //Controlador Dhalin
-    float tau=ts/(2*log(-a));
     float c=-exp(-ts/tau);
 
     u=((k+k*c)*e+(k*c*a+k*a)*eant-b*c*u+(k*b+k*c*b)*uant)/b;
@@ -99,5 +103,24 @@ void loop() {
     y=temp;
 
     ledcWrite(PWM_PIN,u);
+  }
+}
+
+void readValues(){
+  while(Serial.available()){
+    char new_value=Serial.read();
+    String new_data;
+    int temp_set=0;
+    if(new_value!='\n'){
+      new_data+=new_value;
+    }
+    else if(!temp_set){
+      r=new_data.toFloat();
+      new_data="";
+    }
+    else{
+      tau=new_data.toFloat();
+      new_data="";
+    }
   }
 }
