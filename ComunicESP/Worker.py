@@ -3,11 +3,12 @@ import time
 import Functions as fn
 
 class SerialWorker(threading.Thread):
-    def __init__(self, porta, baudrate, referencia):
+    def __init__(self, porta, baudrate, referencia, tempo):
         super().__init__()
         self.porta = porta
         self.baudrate = baudrate
         self.referencia = referencia
+        self.tempo = tempo
         self._stop_event = threading.Event()
         self.ser = None
 
@@ -21,7 +22,7 @@ class SerialWorker(threading.Thread):
         print("Thread de comunicação iniciada.")
         try:
             while not self._stop_event.is_set():
-                fn.enviaDados(self.referencia, self.ser)
+                fn.enviaDados(self.referencia, self.ser,self.tempo)
                 fn.recebeDados(self.referencia, self.ser)
                 time.sleep(0.5)
         except Exception as e:

@@ -1,4 +1,8 @@
 #include <Arduino.h>
+#include <OneWire.h>  
+#include <DallasTemperature.h>
+
+#define dados 27
 
 #define PWM_PIN 18
 #define PWM_CHANNEL 0
@@ -18,10 +22,21 @@ float P3=0;
 float P4=rho;
 float a=0;
 float b=0;
-float r;;
+float r=20;
 float k=1;
 float eant=r;
 float uant=0;
+float tau=5;
+
+long tempo_ant=0;
+long ts=100;
+
+float y_ini=0;
+
+String receivedMessage = "";
+
+OneWire oneWire(dados);  /*Protocolo OneWire*/
+DallasTemperature sensors(&oneWire); /*encaminha referências OneWire para o sensor*/
 
 void setup() {
   Serial.begin(115200);
@@ -30,45 +45,82 @@ void setup() {
   // Configura PWM
   ledcSetup(PWM_CHANNEL, PWM_FREQ, PWM_RESOLUTION);
   ledcAttachPin(PWM_PIN, PWM_CHANNEL);
+  sensors.begin();
+  sensors.requestTemperatures();
+  y_ini=sensors.getTempCByIndex(0);
 }
 
 void loop() {
-  // Simula leitura de temperatura (trocar por sensor real)
-  float temp = 25.5 + (random(-50, 50) / 100.0); 
-  r = Serial.parseFloat();
-  Serial.print("TEMP:");
-  Serial.println(temp, 2);
+  if(millis()-tempo_ant>=ts){
+    // Simula leitura de temperatura (trocar por sensor real)
+    sensors.requestTemperatures();
+    float temp = y_ini-sensors.getTempCByIndex(0);
+    Serial.println(temp, 2);
 
-  float h1=(u*P1-y*P2)/(1+((u*u)*P1-u*y*P3-u*y*P2+(y*y)*P4));
-  float h2=(u*P3-y*P4)/(1+((u*u)*P1-u*y*P3-u*y*P2+(y*y)*P4));
-  
-  a=a+h1*temp-u*a*h1+y*b*h1;
-  b=b+h2*temp-u*a*h2+y*b*h2;
+    if(Serial.available()){
+      readValues();
+    }
 
-  float P1temp=P1;
-  float P2temp=P2;
-  P1=P1-P1*h1*u+P3*h1*y;
-  P2=P2-P2*h1*u+P4*h1*y;
-  P3=-h2*u*P1temp+(1+h2*y)*P3;
-  P4=-h2*u*P2temp+(1+h2*y)*P4;
+    float h1=(u*P1-y*P2)/(1+((u*u)*P1-u*y*P3-u*y*P2+(y*y)*P4));
+    float h2=(u*P3-y*P4)/(1+((u*u)*P1-u*y*P3-u*y*P2+(y*y)*P4));
+    
+    a=a+h1*temp-u*a*h1+y*b*h1;
+    b=b+h2*temp-u*a*h2+y*b*h2;
 
-  float e=r-temp;
+    float P1temp=P1;
+    float P2temp=P2;
+    P1=P1-P1*h1*u+P3*h1*y;
+    P2=P2-P2*h1*u+P4*h1*y;
+    P3=-h2*u*P1temp+(1+h2*y)*P3;
+    P4=-h2*u*P2temp+(1+h2*y)*P4;
 
-  float tau=1/(2*log(-a));
-  float c=-exp(-1/tau);
+    float e=r-temp;
 
-  u=((k+k*c)*e+(k*c*a+k*a)*eant-b*c*u+(k*b+k*c*b)*uant)/b;
+    //Controlador Dhalin
+    float c=-exp(-ts/tau);
 
-  if(u>255){
-    u=255;
+    u=((k+k*c)*e+(k*c*a+k*a)*eant-b*c*u+(k*b+k*c*b)*uant)/b;
+
+    //Controlador PID
+    /*
+    float kg=b/(1+a);
+    float wn=1/tau;
+    int qsi=1;
+    float kc=(2*qsi*wn*tau*2-1)/kg;
+    float ti=(kg*kc)/(2*tau*(wn*wn));
+    u=u+kc*((e-eant)+(ts/ti)*e);
+    */
+
+    if(u>255){
+      u=255;
+    }
+    else if(u<0){
+      u=0;
+    }
+
+    eant=e;
+    uant=u;
+    y=temp;
+
+    ledcWrite(PWM_PIN,u);
   }
-  else if(u<0){
-    u=0;
+}
+
+void readValues(){
+  while(Serial.available()){
+    char new_value=Serial.read();
+    String new_data;
+    int temp_set=0;
+    if(new_value!='\n'){
+      new_data+=new_value;
+    }
+    else if(!temp_set){
+      r=new_data.toFloat();
+      new_data="";
+    }
+    else{
+      tau=new_data.toFloat();
+      new_data="";
+    }
   }
-
-  eant=e;
-  uant=u;
-  y=temp;
-
-  ledcWrite(PWM_PIN,u);
 }

@@ -8,6 +8,7 @@ baudrate = 115200      # ESP32 agora roda estável em 115200
 #referencia = 5.0  # °C desejada(trocar para o valor ser fornecido pelo usuário)
 
 referencia = fn.obterReferencia()
+tempo = fn.obterTempo()
 
 try:
     ser = fn.conectarESP32(porta_serial, baudrate)
@@ -16,7 +17,7 @@ except RuntimeError as e:
     exit(1)
 
 # Inicia a thread de comunicação
-worker = SerialWorker(porta_serial, baudrate, referencia)
+worker = SerialWorker(porta_serial, baudrate, referencia, tempo)
 worker.start()
 
 try:
