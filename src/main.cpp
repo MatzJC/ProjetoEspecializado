@@ -46,7 +46,6 @@ void setup() {
   // Desativa WDT para debug (comente após testar!)
   disableCore0WDT();
   disableCore1WDT();
-  Serial.println("ESP32 iniciado! WDT desabilitado para debug.");
 
   // Configura PWM
   ledcSetup(PWM_CHANNEL, PWM_FREQ, PWM_RESOLUTION);
@@ -57,10 +56,9 @@ void setup() {
   delay(100);  // Pequeno delay para sensor
   y_ini = sensors.getTempCByIndex(0);
   if (y_ini == DEVICE_DISCONNECTED_C) {
-    Serial.println("Erro: Sensor DS18B20 desconectado! Use 4.7k pull-up em dados.");
     y_ini = 0;  // Default
   }
-  Serial.print("Temperatura inicial (y_ini): "); Serial.println(y_ini);
+  Serial.println(y_ini);
 }
 
 void readValues() {
@@ -72,11 +70,11 @@ void readValues() {
       if (!first_line_received) {
         r = line.toFloat();
         first_line_received = true;
-        Serial.print("Referencia recebida: "); Serial.println(r);
+        Serial.println(r);
       } else {
         tau = line.toFloat();
         first_line_received = false;
-        Serial.print("Tempo recebido: "); Serial.println(tau);
+        Serial.println(tau);
       }
     }
   }
@@ -95,10 +93,10 @@ void loop() {
         y = y_ini - raw_temp;  // Seu cálculo (ajuste se necessário)
       } else {
         y = 0;  // Default em erro
-        Serial.println("Aviso: Sensor desconectado!");
+        
       }
       last_sensor_read = now;
-      Serial.print("Temperatura atual (y): "); Serial.println(y, 2);  // Debug: Envia sempre
+      Serial.println(y, 2);  // Debug: Envia sempre
     }
 
     // Lê comandos serial (não bloqueia)
@@ -110,7 +108,7 @@ void loop() {
     float denom = 1 + (u * u * P1 - u * y * P3 - u * y * P2 + y * y * P4);
     if (denom == 0) {  // Proteção!
       denom = 1e-6;  // Valor pequeno para evitar crash
-      Serial.println("Aviso: Denominador zero! Usando fallback.");
+      
     }
     
     float h1 = (u * P1 - y * P2) / denom;
@@ -134,7 +132,6 @@ void loop() {
     float num = (k + k * c) * e + (k * c * a + k * a) * eant - b * c * u + (k * b + k * c * b) * uant;
     if (isnan(num) || isinf(num)) {  // Protege contra NaN/Inf
       u = uant;  // Mantém anterior
-      Serial.println("Aviso: Cálculo NaN! Mantendo u anterior.");
     } else {
       u = num / b;
       if (isnan(u) || isinf(u)) u = uant;
@@ -151,8 +148,8 @@ void loop() {
     ledcWrite(PWM_CHANNEL, (int)u);  // Cast para int
 
     // Debug: Print estado a cada ciclo
-    Serial.print("e: "); Serial.print(e, 2);
-    Serial.print(" u: "); Serial.println((int)u);
+    Serial.print(e, 2);
+    Serial.println((int)u);
 
     tempo_ant = now;
   }

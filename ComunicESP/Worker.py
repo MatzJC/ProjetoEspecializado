@@ -20,6 +20,7 @@ class SerialWorker(threading.Thread):
             try:
                 self.ser = fn.conectarESP32(self.porta, self.baudrate)
                 print("Thread de comunicação iniciada com sucesso.")
+                print(self.ser.is_open)
                 break  # Sai do retry se conectou
             except RuntimeError as e:
                 retry_count += 1
