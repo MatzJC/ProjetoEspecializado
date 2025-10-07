@@ -35,7 +35,7 @@ class Interface(QWidget):
 
         # --- Escolha da porta serial ---
         port_layout = QHBoxLayout()
-        self.port_label = QLabel("Porta Serial:")
+        self.port_label = "COM3"
         self.port_select = QComboBox()
         self.refresh_ports()
         port_layout.addWidget(self.port_label)
