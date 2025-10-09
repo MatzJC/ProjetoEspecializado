@@ -27,7 +27,7 @@ float uant = 0;
 float tau = 5000;  // Tempo inicial
 
 long tempo_ant = 0;
-long tempo = 100;
+long tempo = 1000;
 long tempo_ini=0;
 
 bool first_line_received = true;  // Flag para parse de linhas

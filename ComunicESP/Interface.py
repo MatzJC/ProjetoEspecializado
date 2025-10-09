@@ -100,9 +100,9 @@ class Interface(QWidget):
         self.temps.append(temperatura)
 
         # Limita tamanho da lista
-        if len(self.time_data) > 500:
+        """if len(self.time_data) > 500:
             self.time_data = self.time_data[-500:]
-            self.temps = self.temps[-500:]
+            self.temps = self.temps[-500:]"""
 
     def update_plot(self):
         if self.time_data and self.temps:
