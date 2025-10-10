@@ -9,6 +9,7 @@
 #define PWM_FREQ 1000
 #define PWM_RESOLUTION 8  // 10 bits (0-1023)
 
+//Declaração das variaveis utilizadas
 float y = 0;
 float t_ini = 0;
 float yant =0;
@@ -20,18 +21,17 @@ float P3 = 0;
 float P4 = rho;
 float a = 1e-6;
 float b = 1e-6;
-float r = 6;  // Referência inicial
+float r = 7;  // Referência inicial
 float k = 1;
 float eant = 0;
 float uant = 0;
 float tau = 5000;  // Tempo inicial
 
 long tempo_ant = 0;
-long tempo = 1000;
+long tempo = 1000;//Tempo de amostragem
 long tempo_ini=0;
 
-bool first_line_received = true;  // Flag para parse de linhas
-
+//Preparação do sensor de temperatura
 OneWire oneWire(dados);
 DallasTemperature sensors(&oneWire);
 
@@ -47,10 +47,12 @@ void setup() {
   ledcSetup(PWM_CHANNEL, PWM_FREQ, PWM_RESOLUTION);
   ledcAttachPin(PWM_PIN, PWM_CHANNEL);
   
+  //Realiza medição da temperatura inicial
   sensors.begin();
   sensors.requestTemperatures();
   t_ini = sensors.getTempCByIndex(0);
   Serial.println(t_ini);
+  //Defini saida, erro e tempo de inicio
   yant=0;
   eant=r-t_ini;
   tempo_ini=millis();
@@ -58,13 +60,16 @@ void setup() {
 
 void loop() {
   unsigned long now = millis();
-  
+  //Mantem o tempo de amostragem constante
   if (now - tempo_ant >= tempo) {
+    //Mede a temperatura
     sensors.requestTemperatures();
     float raw_temp = sensors.getTempCByIndex(0);
+    //Calcula a variação de temperatura comparado com a incial
     y = t_ini-raw_temp;
     Serial.println(raw_temp, 2);
 
+    //Estimador MQR
     float denom = 1 + (u * u * P1 - u * yant * P3 - u * yant * P2 + yant * yant * P4);
     if (denom == 0) {  // Proteção!
       denom = 1e-6;  // Valor pequeno para evitar crash
@@ -84,16 +89,14 @@ void loop() {
     P4 = -h2 * u * P2temp + (1 + h2 * yant) * P4;
 
     float e = r - y;  // Erro: referência - atual
-    // Controlador Dhalin
+    
+    /*
+    //Controlador Dhalin
     float c = -exp(-tempo/tau);
-    //float num = (k + k * c) * e + (k * c * a + k * a) * eant - b * c * u + (k * b + k * c * b) * uant;
-    //if (isnan(num) || isinf(num)) {  // Protege contra NaN/Inf
-    //  u = 255;
-    //} else {
+    float num = (k + k * c) * e + (k * c * a + k * a) * eant - b * c * u + (k * b + k * c * b) * uant;
+    */
     
-      //u = num / b;     
-    //}
-    
+
     //Controlador PID
     float kg=b/(1+a);
     float wn=1/tau;
@@ -101,24 +104,36 @@ void loop() {
     float kc=(2*qsi*wn*tau*2-1)/kg;
     float ti=(kg*kc)/(2*tau*(wn*wn));
     u=u+kc*((e-eant)+(tempo/ti)*e);
+
+
+    /*
+    //PID classico
+    u=82.9*e-82.58*eant-u;
+    */
+
+    //Inicia o controle em malha aberta para identificar o comportamento base da planta
     if ((now-tempo_ini)<50000)
     {
       u=255;      
     }
     
+    //Previne sinais de controle inválidos
     if (isnan(u) || isinf(u)){
       u = 255;
     }
-    // Limita u para PWM (10-bit: 0-1023)
+
+    // Saturação do PWM
     if (u > 255){
       u = 255;
     }
     else if (u < 0){
       u = 0;
     }
+
     // Aplica PWM
     ledcWrite(PWM_CHANNEL, (int)u);  // Cast para int
 
+    //Atualiza as variaveis que representam o estado anterior do sistema
     eant = e;
     uant = u;
     yant = y;
