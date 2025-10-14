@@ -108,10 +108,19 @@ class Interface(QWidget):
             self.curve.setData(self.time_data, self.temps)
 
     def closeEvent(self, event):
-        if self.worker:
-            self.worker.stop()
-            self.worker.join()
-        event.accept()
+        reply = QMessageBox.question(
+            self,
+            "Encerrar teste",
+            "Tem certeza que deseja encerrar o teste?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            if self.worker:
+                self.worker.stop()
+                self.worker.join()
+            event.accept()
+        else:
+            event.ignore()  
 
 
 def launch():
