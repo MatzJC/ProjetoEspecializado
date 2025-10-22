@@ -33,3 +33,9 @@ def recebeDados(referencia, port, silent=False):
     except serial.SerialException as e:
         print(f"Erro na comunicação serial: {e}")
     return None
+
+def saveData(teste):
+    with open("ComunicESP/algo.txt",'a') as f:
+        for i in teste:
+            f.write(f'{i}\n')
+        f.write("Fim do teste\n")

@@ -6,9 +6,10 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import QTimer
 import pyqtgraph as pg
+import time
 import serial.tools.list_ports
 from Worker import SerialWorker
-
+import Functions as fn
 
 class Interface(QWidget):
     def __init__(self):
@@ -92,16 +93,16 @@ class Interface(QWidget):
     def data_callback(self, temperatura):
         """Recebe dados da thread serial e atualiza o gráfico."""
         if len(self.time_data) == 0:
-            self.t0 = pg.ptime.time()
+            self.t0 = time.time()
 
-        t = pg.ptime.time() - self.t0
+        t = time.time() - self.t0
         self.time_data.append(t)
         self.temps.append(temperatura)
 
         # Limita tamanho da lista
-        if len(self.time_data) > 500:
+        """if len(self.time_data) > 500:
             self.time_data = self.time_data[-500:]
-            self.temps = self.temps[-500:]
+            self.temps = self.temps[-500:]"""
 
     def update_plot(self):
         if self.time_data and self.temps:

@@ -40,4 +40,3 @@ class SerialWorker(threading.Thread):
 
     def stop(self):
         self._stop_event.set()
-
