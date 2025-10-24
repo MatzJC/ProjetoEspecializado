@@ -40,3 +40,7 @@ class SerialWorker(threading.Thread):
 
     def stop(self):
         self._stop_event.set()
+
+    def update_parameters(self, nova_ref, novo_tempo):
+        self.referencia = nova_ref
+        self.tempo = novo_tempo

@@ -60,6 +60,7 @@ class Interface(QWidget):
         self.connect_button = QPushButton("Iniciar Teste")
         self.connect_button.clicked.connect(self.start_worker)
         self.stop_button = QPushButton("Encerrar Teste")
+        self.update_button = QPushButton("Atualizar Parâmetros")
         self.stop_button.clicked.connect(self.stop_worker)
         self.stop_button.setEnabled(False)
 
@@ -158,6 +159,15 @@ class Interface(QWidget):
             QMessageBox.warning(self, "Erro", "Insira valores válidos para referência e tempo.")
         except Exception as e:
             QMessageBox.critical(self, "Erro", str(e))
+
+    def update_parameters(self):
+        try:
+            nova_ref = float(self.ref_input.text())
+            novo_tempo = float(self.time_input.text())
+            if self.worker and self.worker.is_alive():
+                self.worker.update_parameters(nova_ref, novo_tempo)
+        except ValueError:
+            QMessageBox.warning(self, "Erro", "Valores inválidos")
 
     def stop_worker(self):
         """Para a thread de comunicação"""
