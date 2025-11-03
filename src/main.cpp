@@ -4,10 +4,12 @@
 
 #define dados 27  // Pino do sensor DS18B20
 
-#define PWM_PIN 18
+#define PWM_PIN 17
 #define PWM_CHANNEL 0
 #define PWM_FREQ 1000
 #define PWM_RESOLUTION 8  // 10 bits (0-1023)
+
+TaskHandle_t Task1;
 
 //Declaração das variaveis utilizadas
 float y = 0;
@@ -21,15 +23,19 @@ float P3 = 0;
 float P4 = rho;
 float a = 1e-6;
 float b = 1e-6;
-float r = 7;  // Referência inicial
+float r = 5;  // Referência inicial
+float rfinal = 5;
+float tfinal = 500;
 float k = 1;
 float eant = 0;
 float uant = 0;
 float tau = 5000;  // Tempo inicial
 
 long tempo_ant = 0;
-long tempo = 1000;//Tempo de amostragem
+long tempo = 200;//Tempo de amostragem
 long tempo_ini=0;
+
+float rstep = rfinal/(((tfinal*1000)-1)/tempo);
 
 //Preparação do sensor de temperatura
 OneWire oneWire(dados);
@@ -49,6 +55,7 @@ void setup() {
   
   //Realiza medição da temperatura inicial
   sensors.begin();
+  sensors.setResolution(10);
   sensors.requestTemperatures();
   t_ini = sensors.getTempCByIndex(0);
   Serial.println(t_ini);
@@ -67,7 +74,12 @@ void loop() {
     float raw_temp = sensors.getTempCByIndex(0);
     //Calcula a variação de temperatura comparado com a incial
     y = t_ini-raw_temp;
+    Serial.print("Temperatura: ");
     Serial.println(raw_temp, 2);
+    Serial.print("Variação: ");
+    Serial.println(y, 2);
+    //Serial.print("Referencia: ");
+    //Serial.println(r, 2);
 
     //Estimador MQR
     float denom = 1 + (u * u * P1 - u * yant * P3 - u * yant * P2 + yant * yant * P4);
@@ -90,29 +102,43 @@ void loop() {
 
     float e = r - y;  // Erro: referência - atual
     
-    /*
+    
+    float taue=(-tempo)/(log(-a));
+    tau=taue/2;
+
+      
     //Controlador Dhalin
     float c = -exp(-tempo/tau);
     float num = (k + k * c) * e + (k * c * a + k * a) * eant - b * c * u + (k * b + k * c * b) * uant;
-    */
+    // (1 + c) * e + (c * a + a) * eant - b * c * u + (b + c * b) * uant;
+    // 
+    u=num/b;
     
 
+    /*
     //Controlador PID
     float kg=b/(1+a);
     float wn=1/tau;
     int qsi=1;
-    float kc=(2*qsi*wn*tau*2-1)/kg;
-    float ti=(kg*kc)/(2*tau*(wn*wn));
+    float kc=(2*qsi*wn*taue-1)/kg;
+    float ti=(kg*kc)/(taue*(wn*wn));
     u=u+kc*((e-eant)+(tempo/ti)*e);
+    */
 
+    Serial.print("Erro: ");
+    Serial.println(e);
+    Serial.print("Controle: ");
+    Serial.println(u);
 
     /*
     //PID classico
-    u=82.9*e-82.58*eant-u;
+    u=82.9*e-82.58*eant+u;
     */
 
+    //Serial.print("Controle: ");
+    //Serial.println(u);
     //Inicia o controle em malha aberta para identificar o comportamento base da planta
-    if ((now-tempo_ini)<50000)
+    if ((now-tempo_ini)<60000)
     {
       u=255;      
     }
@@ -138,6 +164,9 @@ void loop() {
     uant = u;
     yant = y;
     tempo_ant = now;
+    if(r<rfinal){
+      r+=rstep;
+    }
   }
   
   // Pequeno yield para não monopolizar CPU
