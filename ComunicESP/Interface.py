@@ -18,54 +18,155 @@ class Interface(QWidget):
         self.setWindowTitle("Controle de Temperatura - ESP32")
         self.setGeometry(200, 200, 1000, 700)
 
+        # =====================
+        #  ESTILO QSS
+        # =====================
+        self.qss = """
+        QWidget {
+            background-color: #2B2B2B;
+            color: #F0F0F0;
+            font-family: Arial, sans-serif;
+            font-size: 11pt;
+        }
+        QLabel {
+            background-color: transparent;
+        }
+        QLineEdit, QComboBox {
+            background-color: #3C3C3C;
+            border: 1px solid #555;
+            border-radius: 5px;
+            padding: 8px;
+        }
+        QLineEdit:focus, QComboBox:focus {
+            border: 1px solid #0078D7;
+            background-color: #454545;
+        }
+        QComboBox::drop-down {
+            border: none;
+            width: 20px;
+        }
+        QPushButton {
+            background-color: #0078D7;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            font-weight: bold;
+        }
+        QPushButton:hover {
+            background-color: #005A9E;
+        }
+        QPushButton:pressed {
+            background-color: #004C82;
+        }
+        QPushButton:disabled {
+            background-color: #555;
+            color: #999;
+        }
+        #connectButton {
+            background-color: #28A745; /* Verde */
+        }
+        #connectButton:hover {
+            background-color: #218838;
+        }
+        #stopButton {
+            background-color: #DC3545; /* Vermelho */
+        }
+        #stopButton:hover {
+            background-color: #C82333;
+        }
+        #updateButton {
+            background-color: #FFC107; /* Laranja/Amarelo */
+            color: #212529;
+        }
+        #updateButton:hover {
+            background-color: #E0A800;
+        }
+        #refreshButton {
+            background-color: #17A2B8; /* Azul Info */
+        }
+        #refreshButton:hover {
+            background-color: #138496;
+        }
+        PlotWidget {
+            border-radius: 5px;
+            border: 1px solid #444;
+        }
+        """
+        # Aplicando o estilo
+        self.setStyleSheet(self.qss)
+
+
         # Layout principal
         main_layout = QVBoxLayout()
+        main_layout.setSpacing(15) 
+        main_layout.setContentsMargins(15, 15, 15, 15)
 
         # =====================
-        #  SEÇÃO DE ENTRADAS
+        #  SEÇÃO DE ENTRADAS (LAYOUT MELHORADO)
         # =====================
-        input_layout = QHBoxLayout()
+        # Trocado para QGridLayout para melhor alinhamento
+        input_layout = QGridLayout()
+        input_layout.setSpacing(10)
 
         self.ref_label = QLabel("Temperatura de Referência (°C):")
         self.ref_input = QLineEdit()
+        self.ref_input.setPlaceholderText("Ex: 50.5") # Ajuda o usuário
+
         self.time_label = QLabel("Tempo de Assentamento (s):")
         self.time_input = QLineEdit()
+        self.time_input.setPlaceholderText("Ex: 300") # Ajuda o usuário
 
-        input_layout.addWidget(self.ref_label)
-        input_layout.addWidget(self.ref_input)
-        input_layout.addWidget(self.time_label)
-        input_layout.addWidget(self.time_input)
+        # Adiciona os widgets ao grid
+        input_layout.addWidget(self.ref_label, 0, 0)
+        input_layout.addWidget(self.ref_input, 0, 1)
+        input_layout.addWidget(self.time_label, 1, 0)
+        input_layout.addWidget(self.time_input, 1, 1)
 
         main_layout.addLayout(input_layout)
 
         # =====================
-        #  SEÇÃO DE PORTAS
+        #  SEÇÃO DE PORTAS (LAYOUT MELHORADO)
         # =====================
         port_layout = QHBoxLayout()
         port_layout.addWidget(QLabel("Porta serial:"))
         self.port_select = QComboBox()
         self.refresh_ports()
-        port_layout.addWidget(self.port_select)
+        # Adiciona stretch factor '1' para o ComboBox preencher o espaço
+        port_layout.addWidget(self.port_select, 1) 
 
         self.refresh_button = QPushButton("Atualizar Portas")
+        # ADICIONADO setObjectName para o QSS funcionar
+        self.refresh_button.setObjectName("refreshButton") 
         self.refresh_button.clicked.connect(self.refresh_ports)
         port_layout.addWidget(self.refresh_button)
 
         main_layout.addLayout(port_layout)
 
         # =====================
-        #  BOTÕES DE CONTROLE
+        #  BOTÕES DE CONTROLE (CORRIGIDO)
         # =====================
         button_layout = QHBoxLayout()
+        
         self.connect_button = QPushButton("Iniciar Teste")
+        self.connect_button.setObjectName("connectButton") # ADICIONADO
         self.connect_button.clicked.connect(self.start_worker)
+        
         self.stop_button = QPushButton("Encerrar Teste")
-        self.update_button = QPushButton("Atualizar Parâmetros")
+        self.stop_button.setObjectName("stopButton") # ADICIONADO
         self.stop_button.clicked.connect(self.stop_worker)
         self.stop_button.setEnabled(False)
+        
+        self.update_button = QPushButton("Atualizar Parâmetros")
+        self.update_button.setObjectName("updateButton") # ADICIONADO
+        self.update_button.clicked.connect(self.update_parameters)
+        self.update_button.setEnabled(False) # ADICIONADO (começa desabilitado)
 
         button_layout.addWidget(self.connect_button)
         button_layout.addWidget(self.stop_button)
+        # CORREÇÃO: Adicionando o botão que faltava ao layout
+        button_layout.addWidget(self.update_button) 
+
         main_layout.addLayout(button_layout)
 
         # =====================
@@ -77,7 +178,6 @@ class Interface(QWidget):
         font_big.setPointSize(16)
         font_big.setBold(True)
 
-        # Labels de status
         self.label_ref = QLabel("Ref: -- °C")
         self.label_current = QLabel("Atual: -- °C")
         self.label_error = QLabel("Erro: -- °C")
@@ -86,6 +186,8 @@ class Interface(QWidget):
         for lbl in [self.label_ref, self.label_current, self.label_error, self.label_time]:
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             lbl.setFont(font_big)
+            # Adiciona cor branca para destacar no fundo escuro
+            lbl.setStyleSheet("color: #FFFFFF; background-color: transparent;")
 
         status_layout.addWidget(self.label_ref, 0, 0)
         status_layout.addWidget(self.label_current, 0, 1)
@@ -98,9 +200,10 @@ class Interface(QWidget):
         #  GRÁFICO
         # =====================
         self.graph = pg.PlotWidget()
-        self.graph.setBackground('w')
+        self.graph.setBackground('w') # Fundo branco para o gráfico
         self.graph.setLabel('left', 'Temperatura (°C)')
         self.graph.setLabel('bottom', 'Tempo (s)')
+        self.graph.showGrid(x=True, y=True, alpha=0.3) # Adiciona grade
         self.curve = self.graph.plot(pen=pg.mkPen('r', width=2))
         main_layout.addWidget(self.graph)
 
@@ -114,7 +217,6 @@ class Interface(QWidget):
         self.test_running = False
         self.worker = None
 
-        # Timer de atualização do gráfico
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_plot)
         self.timer.start(500)
@@ -139,6 +241,11 @@ class Interface(QWidget):
             tempo = float(self.time_input.text())
             baudrate = 115200
 
+            # Limpa dados do gráfico anterior
+            self.temps = []
+            self.time_data = []
+            self.curve.setData(self.time_data, self.temps)
+
             self.worker = SerialWorker(port, baudrate, self.referencia, tempo, self.data_callback)
             self.worker.start()
 
@@ -152,6 +259,12 @@ class Interface(QWidget):
 
             self.connect_button.setEnabled(False)
             self.stop_button.setEnabled(True)
+            self.update_button.setEnabled(True)
+
+            # Desabilita controles de setup
+            self.ref_input.setEnabled(False)
+            self.port_select.setEnabled(False)
+            self.refresh_button.setEnabled(False)
 
             QMessageBox.information(self, "Conexão", f"Conectado à {port}")
 
@@ -179,6 +292,13 @@ class Interface(QWidget):
         self.test_running = False
         self.connect_button.setEnabled(True)
         self.stop_button.setEnabled(False)
+        self.update_button.setEnabled(False)
+
+        # Reabilita controles de setup
+        self.ref_input.setEnabled(True)
+        self.port_select.setEnabled(True)
+        self.refresh_button.setEnabled(True)
+        
         QMessageBox.information(self, "Encerrado", "Teste finalizado com sucesso.")
 
     def data_callback(self, temperatura):
