@@ -1,3 +1,4 @@
+# Interface.py
 import sys
 import time
 import serial.tools.list_ports
@@ -9,8 +10,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import QTimer, Qt
 
-from Worker import SerialWorker
-
+# Importe o Worker e seus Sinais
+from Worker import SerialWorker, WorkerSignals
 
 class Interface(QWidget):
     def __init__(self):
@@ -101,7 +102,6 @@ class Interface(QWidget):
         main_layout = QVBoxLayout()
         main_layout.setSpacing(15) 
         main_layout.setContentsMargins(15, 15, 15, 15)
-
         # =====================
         #  SEÇÃO DE ENTRADAS (LAYOUT MELHORADO)
         # =====================
@@ -230,13 +230,19 @@ class Interface(QWidget):
         """Atualiza lista de portas COM disponíveis"""
         self.port_select.clear()
         ports = serial.tools.list_ports.comports()
-        for port in ports:
-            self.port_select.addItem(port.device)
+        if not ports:
+            self.port_select.addItem("Nenhuma porta encontrada")
+        else:
+            for port in ports:
+                self.port_select.addItem(port.device)
 
     def start_worker(self):
         """Inicia o teste e a thread de comunicação"""
         try:
             port = self.port_select.currentText()
+            if port == "Nenhuma porta encontrada":
+                raise Exception("Nenhuma porta serial selecionada.")
+                
             self.referencia = float(self.ref_input.text())
             tempo = float(self.time_input.text())
             baudrate = 115200
@@ -246,7 +252,14 @@ class Interface(QWidget):
             self.time_data = []
             self.curve.setData(self.time_data, self.temps)
 
-            self.worker = SerialWorker(port, baudrate, self.referencia, tempo, self.data_callback)
+            # 1. Crie o worker (sem callback)
+            self.worker = SerialWorker(port, baudrate, self.referencia, tempo)
+            
+            # 2. Conecte os sinais aos slots
+            self.worker.signals.data_received.connect(self.handle_data_received)
+            self.worker.signals.error.connect(self.handle_worker_error)
+            self.worker.signals.finished.connect(self.handle_worker_finished)
+            
             self.worker.start()
 
             # Atualiza UI
@@ -254,8 +267,11 @@ class Interface(QWidget):
             self.label_current.setText("Atual: -- °C")
             self.label_error.setText("Erro: -- °C")
             self.label_time.setText("Tempo: 0.0 s")
-            self.start_time = time.time()
+            
             self.test_running = True
+            
+            # self.start_time será definido no primeiro dado recebido
+            self.start_time = None 
 
             self.connect_button.setEnabled(False)
             self.stop_button.setEnabled(True)
@@ -263,6 +279,7 @@ class Interface(QWidget):
 
             # Desabilita controles de setup
             self.ref_input.setEnabled(False)
+            self.time_input.setEnabled(True) 
             self.port_select.setEnabled(False)
             self.refresh_button.setEnabled(False)
 
@@ -272,6 +289,8 @@ class Interface(QWidget):
             QMessageBox.warning(self, "Erro", "Insira valores válidos para referência e tempo.")
         except Exception as e:
             QMessageBox.critical(self, "Erro", str(e))
+            if self.worker:
+                self.worker = None
 
     def update_parameters(self):
         try:
@@ -279,16 +298,22 @@ class Interface(QWidget):
             novo_tempo = float(self.time_input.text())
             if self.worker and self.worker.is_alive():
                 self.worker.update_parameters(nova_ref, novo_tempo)
+                
+                # Atualiza a referência local na GUI também
+                self.referencia = nova_ref
+                self.label_ref.setText(f"Ref: {self.referencia:.2f} °C")
+                QMessageBox.information(self, "Atualizado", "Parâmetros enviados.")
+                
         except ValueError:
             QMessageBox.warning(self, "Erro", "Valores inválidos")
+        except Exception as e:
+            QMessageBox.warning(self, "Erro", f"Não foi possível atualizar: {e}")
 
     def stop_worker(self):
-        """Para a thread de comunicação"""
         if self.worker:
             self.worker.stop()
-            self.worker.join()
-            self.worker = None
 
+            
         self.test_running = False
         self.connect_button.setEnabled(True)
         self.stop_button.setEnabled(False)
@@ -296,18 +321,23 @@ class Interface(QWidget):
 
         # Reabilita controles de setup
         self.ref_input.setEnabled(True)
+        self.time_input.setEnabled(True)
         self.port_select.setEnabled(True)
         self.refresh_button.setEnabled(True)
         
-        QMessageBox.information(self, "Encerrado", "Teste finalizado com sucesso.")
+        print("Teste encerrado pelo usuário.")
+        # QMessageBox.information(self, "Encerrado", "Teste finalizado com sucesso.")
 
-    def data_callback(self, temperatura):
-        """Callback da thread serial - recebe temperatura e atualiza dados"""
+    # ------------------------------------------------------------------
+    # NOVOS SLOTS PARA COMUNICAÇÃO SEGURA COM A THREAD
+    # ------------------------------------------------------------------
+
+    def handle_data_received(self, temperatura):
         if not self.test_running:
             return
 
-        # Primeiro dado
-        if len(self.time_data) == 0:
+        # Primeiro dado: define o tempo inicial
+        if self.start_time is None:
             self.start_time = time.time()
 
         t = time.time() - self.start_time
@@ -316,20 +346,40 @@ class Interface(QWidget):
         self.time_data.append(t)
         self.temps.append(temperatura)
 
-        # Atualiza labels
+        # Atualiza labels (AGORA É SEGURO!)
         self.label_current.setText(f"Atual: {temperatura:.2f} °C")
         self.label_error.setText(f"Erro: {erro:.2f} °C")
         self.label_time.setText(f"Tempo: {t:.1f} s")
 
         # Se atingiu a referência, para o cronômetro automaticamente
-        if abs(erro) <= 0.5:  # margem de 0.5°C
-            self.test_running = False
+        if abs(erro) <= 0.5:  
+            if self.test_running: 
+                print("Atingiu a referência, parando automaticamente.")
+                self.test_running = False 
+                
+                final_time = t 
+                
+                QTimer.singleShot(0, self.stop_worker)
+                QTimer.singleShot(100, lambda: QMessageBox.information(
+                    self,
+                    "Estabilizado",
+                    f"Referência alcançada em {final_time:.1f} segundos!"
+                ))
+                
+    def handle_worker_error(self, error_message):
+        QMessageBox.critical(self, "Erro na Thread", f"A comunicação foi interrompida: {error_message}")
+        if self.test_running:
+            self.stop_worker() # Para a UI
+
+    def handle_worker_finished(self):
+        print("Thread do worker finalizada.")
+        if self.test_running:
             self.stop_worker()
-            QMessageBox.information(
-                self,
-                "Estabilizado",
-                f"Temperatura de referência alcançada em {t:.1f} segundos!"
-            )
+        self.worker = None 
+
+    # ------------------------------------------------------------------
+    # MÉTODOS RESTANTES (sem alteração)
+    # ------------------------------------------------------------------
 
     def update_plot(self):
         """Atualiza o gráfico periodicamente"""
@@ -338,16 +388,20 @@ class Interface(QWidget):
 
     def closeEvent(self, event):
         """Intercepta fechamento da janela"""
-        reply = QMessageBox.question(
-            self,
-            "Encerrar teste",
-            "Tem certeza que deseja encerrar o teste?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
+        if self.test_running:
+            reply = QMessageBox.question(
+                self,
+                "Encerrar teste",
+                "Um teste está em andamento. Deseja encerrá-lo e sair?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+        else:
+            reply = QMessageBox.StandardButton.Yes
+
         if reply == QMessageBox.StandardButton.Yes:
             if self.worker:
                 self.worker.stop()
-                self.worker.join()
+                # Não precisa de .join() aqui, apenas sinalize para parar.
             event.accept()
         else:
             event.ignore()
