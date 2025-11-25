@@ -20,18 +20,33 @@ def enviaDados(referencia, port, tempo):
 def recebeDados(referencia, port, silent=False):
     try:
         if port.in_waiting > 0:
-            linha = port.readline().decode().strip()
-            if linha:
-                try:
-                    temperatura_atual = float(linha)
-                    if not silent:
-                        print(f"Temperatura atual: {temperatura_atual}°C")
-                    return temperatura_atual
-                except ValueError:
-                    if not silent:
-                        print(f"Dado inválido recebido: {linha}")
+            # Decodifica ignorando bytes inválidos
+            linha = port.readline().decode("utf-8", errors="ignore").strip()
+
+            if not linha:
+                return None
+
+            # Filtra somente caracteres válidos para um número
+            linha_filtrada = "".join(c for c in linha if c.isdigit() or c in ".-")
+
+            if not linha_filtrada:
+                if not silent:
+                    print(f"Dado inválido recebido (lixo ignorado): {linha!r}")
+                return None
+
+            try:
+                temperatura_atual = float(linha_filtrada)
+                if not silent:
+                    print(f"Temperatura atual: {temperatura_atual}°C")
+                return temperatura_atual
+            except ValueError:
+                if not silent:
+                    print(f"Dado não numérico recebido: {linha!r}")
+                return None
+
     except serial.SerialException as e:
         print(f"Erro na comunicação serial: {e}")
+
     return None
 
 def saveData(teste):
