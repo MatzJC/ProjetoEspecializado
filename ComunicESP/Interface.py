@@ -368,8 +368,8 @@ class Interface(QWidget):
                 
     def handle_worker_error(self, error_message):
         QMessageBox.critical(self, "Erro na Thread", f"A comunicação foi interrompida: {error_message}")
-        if self.test_running:
-            self.stop_worker() # Para a UI
+        #if self.test_running:
+        #    self.stop_worker() # Para a UI
 
     def handle_worker_finished(self):
         print("Thread do worker finalizada.")

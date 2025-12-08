@@ -1,6 +1,7 @@
 {
     "idf.pythonInstallPath": "C:\\Users\\henri\\.espressif\\tools\\idf-python\\3.8.7\\python.exe",
     "files.associations": {
-        "cmath": "cpp"
+        "cmath": "cpp",
+        "chrono": "cpp"
     }
 }
